@@ -1,30 +1,40 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { EditUserDto } from './dto/edit-user.dto';
-import { UserEntity } from './serializer/user.serializer';
-import { UsersRepository } from './users.repository';
+import { UserEntity } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(UsersRepository)
-    private readonly usersRepository: UsersRepository,
+    @InjectRepository(UserEntity)
+    private readonly usersRepository: Repository<UserEntity>,
   ) {}
 
-  async get(
-    id: string,
-    relations: string[] = [],
-    throwsException = false,
-  ): Promise<UserEntity | null> {
-    return await this.usersRepository.get(id, relations, throwsException);
+  async get(id: number, relations: string[] = []): Promise<UserEntity | null> {
+    return await this.usersRepository.findOne(id, { relations });
+  }
+
+  async getAll(relations: string[] = []): Promise<UserEntity[] | null> {
+    return await this.usersRepository.find({ relations });
   }
 
   async create(inputs: CreateUserDto): Promise<UserEntity> {
-    return await this.usersRepository.createEntity(inputs);
+    const createUser = await this.usersRepository.save(inputs);
+    return createUser;
   }
 
-  async update(user: UserEntity, inputs: EditUserDto): Promise<UserEntity> {
-    return await this.usersRepository.updateEntity(user, inputs);
+  async updateUser(id: number, inputs: EditUserDto): Promise<UserEntity> {
+    const foundUser = await this.usersRepository.findOne(id);
+
+    if (!foundUser) throw new NotFoundException('User not found.');
+
+    foundUser.email = inputs.email;
+    foundUser.name = inputs.name;
+
+    const updateUser = await this.usersRepository.save(foundUser);
+
+    return updateUser;
   }
 }

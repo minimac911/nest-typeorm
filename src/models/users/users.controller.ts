@@ -4,45 +4,55 @@ import {
   Controller,
   Get,
   Param,
+  ParseIntPipe,
   Post,
   Put,
-  SerializeOptions,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiBody, ApiTags } from '@nestjs/swagger';
+import { plainToClass } from 'class-transformer';
 import { CreateUserDto } from './dto/create-user.dto';
 import { EditUserDto } from './dto/edit-user.dto';
-import {
-  extendedUserGroupsForSerializing,
-  UserEntity,
-} from './serializer/user.serializer';
+import { UserResponseDto } from './dto/user-response.dto';
+
 import { UsersService } from './users.service';
 
+@UseInterceptors(ClassSerializerInterceptor)
+@ApiTags('users')
 @Controller('users')
-@SerializeOptions({
-  groups: extendedUserGroupsForSerializing,
-})
 export class UsersController {
   constructor(readonly userService: UsersService) {}
 
+  @Get('/')
+  @UseInterceptors(ClassSerializerInterceptor)
+  async getAll(): Promise<UserResponseDto[]> {
+    const allUsers = await this.userService.getAll();
+    return plainToClass(UserResponseDto, allUsers);
+  }
+
   @Get('/:id')
   @UseInterceptors(ClassSerializerInterceptor)
-  async get(@Param('id') id): Promise<UserEntity> {
-    return await this.userService.get(id);
+  async get(@Param('id', ParseIntPipe) id: number): Promise<UserResponseDto> {
+    const user = await this.userService.get(id);
+    return plainToClass(UserResponseDto, user);
   }
 
   @Post('/')
   @UseInterceptors(ClassSerializerInterceptor)
-  async create(@Body() inputs: CreateUserDto): Promise<UserEntity> {
-    return await this.create(inputs);
+  @ApiBody({ type: CreateUserDto })
+  async create(@Body() inputs: CreateUserDto): Promise<UserResponseDto> {
+    const createUser = await this.userService.create(inputs);
+    return plainToClass(UserResponseDto, createUser);
   }
 
   @Put('/:id')
   @UseInterceptors(ClassSerializerInterceptor)
+  @ApiBody({ type: EditUserDto })
   async update(
-    @Param('id') id,
+    @Param('id', ParseIntPipe) id: number,
     @Body() inputs: EditUserDto,
-  ): Promise<UserEntity> {
-    const user = await this.userService.get(id);
-    return this.userService.update(user, inputs);
+  ): Promise<UserResponseDto> {
+    const updateUser = await this.userService.updateUser(id, inputs);
+    return plainToClass(UserResponseDto, updateUser);
   }
 }

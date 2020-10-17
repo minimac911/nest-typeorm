@@ -2,15 +2,17 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { IUser } from 'src/models/users/interfaces/user.interface';
+import { PostEntity } from 'src/models/posts/entities/post.entity';
 
 @Entity({ name: 'users' })
-export class User implements IUser {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+export class UserEntity implements IUser {
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
   email: string;
@@ -20,6 +22,12 @@ export class User implements IUser {
 
   @Column()
   password: string;
+
+  @OneToMany(
+    () => PostEntity,
+    post => post.user,
+  )
+  posts: PostEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
