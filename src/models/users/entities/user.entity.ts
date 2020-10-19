@@ -14,7 +14,7 @@ export class UserEntity implements IUser {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ nullable: false, unique: true })
   email: string;
 
   @Column({ nullable: true, default: null })

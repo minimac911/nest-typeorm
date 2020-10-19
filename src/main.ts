@@ -5,6 +5,7 @@ import * as dotenv from 'dotenv';
 import { HttpExceptionFilter } from './common/exceptions/http-exception.filter';
 import { LoggerMiddleware } from './common/middlewares/logger.middleware';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AppConfigService } from './config/app/config.service';
 
 dotenv.config();
 
@@ -28,7 +29,6 @@ async function bootstrap() {
   /**
    * Swagger API docs UI
    */
-
   const options = new DocumentBuilder()
     .setTitle('Nest js type orm sandbox')
     .setDescription('This is the API docs for the nest js and typeorm sandbox')
@@ -38,6 +38,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('docs', app, document);
 
-  await app.listen(process.env.PORT);
+  /**
+   * Config
+   */
+
+  const appConfig: AppConfigService = app.get('AppConfigService');
+
+  await app.listen(appConfig.port);
 }
 bootstrap();

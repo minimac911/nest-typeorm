@@ -9,5 +9,6 @@ import { PostsService } from './posts.service';
   imports: [UsersModule, TypeOrmModule.forFeature([PostEntity])],
   controllers: [PostsController],
   providers: [PostsService],
+  // exports: [PostsService],
 })
 export class PostsModule {}

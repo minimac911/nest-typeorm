@@ -26,7 +26,7 @@ export class PostsController {
     const posts = await this.postService.getAll();
     return plainToClass(ViewPostDto, posts);
   }
-  
+
   @Post()
   @ApiBody({ type: CreatePostDto })
   async create(@Body() inputs: CreatePostDto): Promise<ViewPostDto> {
@@ -53,5 +53,4 @@ export class PostsController {
     const publishPost = await this.postService.publishPost(id);
     return plainToClass(ViewPostDto, publishPost);
   }
-
 }
