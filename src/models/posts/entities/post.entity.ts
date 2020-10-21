@@ -1,5 +1,6 @@
 import { UserEntity } from 'src/models/users/entities/user.entity';
 import {
+  BaseEntity,
   Column,
   CreateDateColumn,
   Entity,
