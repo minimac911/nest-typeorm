@@ -35,4 +35,16 @@ export class PostEntity implements IPost {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
+
+  constructor(
+    title: string,
+    content: string,
+    isPublished: boolean,
+    user: UserEntity,
+  ) {
+    this.title = title;
+    this.content = content;
+    this.isPublished = isPublished;
+    this.user = user;
+  }
 }

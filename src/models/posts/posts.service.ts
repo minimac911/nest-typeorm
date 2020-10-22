@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  NotImplementedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
@@ -13,45 +17,24 @@ export class PostsService {
     private readonly userService: UsersService,
   ) {}
 
-  async getAll(relations: string[] = []): Promise<PostEntity[]> {
-    return await this.postsRepository.find({ relations });
+  async getAll(): Promise<PostEntity[]> {
+    const posts = await this.postsRepository.find();
+    return posts;
   }
 
-  async getAllPublished(relations: string[] = []): Promise<PostEntity[]> {
-    return await this.postsRepository.find({
-      relations,
-      where: { isPublished: true },
-    });
+  async getAllPublished(): Promise<PostEntity[]> {
+    throw new NotImplementedException();
   }
 
-  async getOne(
-    id: number,
-    relations: string[] = [],
-  ): Promise<PostEntity | null> {
-    const post = await this.postsRepository.findOne(id, { relations });
-
-    if (!post) throw new NotFoundException('Post not found');
-
-    return post;
+  async getOne(id: number): Promise<PostEntity | null> {
+    throw new NotImplementedException();
   }
 
   async create(data: CreatePostDto): Promise<PostEntity | null> {
-    const user = await this.userService.get(data.userId);
-
-    if (!user) throw new NotFoundException('User not found');
-
-    return await this.postsRepository.save({ ...data, user });
+    throw new NotImplementedException();
   }
 
   async publishPost(id: number): Promise<PostEntity> {
-    const post = await this.postsRepository.findOne(id);
-
-    if (!post) throw new NotFoundException('Post not found');
-
-    post.isPublished = true;
-
-    const publishedPost = await this.postsRepository.save(post);
-
-    return publishedPost;
+    throw new NotImplementedException();
   }
 }

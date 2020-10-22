@@ -1,43 +1,142 @@
+// https://stackoverflow.com/questions/57099863/spyon-typeorm-repository-to-change-the-return-value-for-unit-testing-nestjs
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserEntity } from 'src/models/users/entities/user.entity';
+import { UsersService } from 'src/models/users/users.service';
 import { Repository } from 'typeorm';
 import { PostEntity } from '../entities/post.entity';
 import { PostsService } from '../posts.service';
-// https://stackoverflow.com/questions/57099863/spyon-typeorm-repository-to-change-the-return-value-for-unit-testing-nestjs
+
+class PostTestData {
+  title: string;
+  content?: string = null;
+  isPublished: boolean;
+  user: UserEntity;
+}
+
+const testEmail = 'test@test.com';
+const testPassword = 'password';
+const testSalt = 'salt';
+const testName = 'test';
+
+const userArray = [
+  new UserEntity(testEmail, testPassword, testSalt, testName),
+  new UserEntity('test2@gmail.com', 'password', 'salt', 'test2'),
+  new UserEntity('test3@gmail.com', 'password', 'salt', 'test2'),
+];
+
+const oneUser = new UserEntity(testEmail, testPassword, testSalt, testName);
+
+const testData: PostTestData = {
+  title: 'test title',
+  content: 'this is a lot of good content',
+  isPublished: false,
+  user: oneUser,
+};
+
+const onePost = new PostEntity(
+  testData.title,
+  testData.content,
+  testData.isPublished,
+  testData.user,
+);
+
+const postsArray = [
+  onePost,
+  new PostEntity('a', null, true, testData.user),
+  new PostEntity('b', null, false, userArray[1]),
+  new PostEntity('c', null, true, userArray[1]),
+];
 
 describe('PostsService', () => {
-  let service: PostsService;
-  let repo: Repository<PostEntity>;
-  const mockPostsRepository = () => ({
-    createProduct: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-    delete: jest.fn(),
-  });
+  let postService: PostsService;
+  let postRepository: Repository<PostEntity>;
+
+  let find: jest.Mock;
+  let findOne: jest.Mock;
+  let findOneOrFail: jest.Mock;
+  let create: jest.Mock;
+  let update: jest.Mock;
+  let save: jest.Mock;
 
   beforeEach(async () => {
+    find = jest.fn().mockReturnValue(postsArray);
+    findOne = jest.fn().mockReturnValue(onePost);
+    findOneOrFail = jest.fn().mockReturnValue(onePost);
+    create = jest.fn(p => p);
+    save = jest.fn(p => p);
+    update = jest.fn(p => p);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PostsService,
         {
+          provide: UsersService,
+          useValue: {
+            get: jest.fn().mockReturnValue(oneUser),
+          },
+        },
+        {
           provide: getRepositoryToken(PostEntity),
-          useClass: Repository,
+          useValue: {
+            find,
+            findOne,
+            findOneOrFail,
+            create,
+            save,
+            update,
+          },
         },
       ],
     }).compile();
 
-    service = module.get<PostsService>(PostsService);
-    repo = module.get<Repository<PostEntity>>(getRepositoryToken(PostEntity));
-  });
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+    postService = module.get<PostsService>(PostsService);
+    postRepository = module.get<Repository<PostEntity>>(
+      getRepositoryToken(UserEntity),
+    );
   });
 
-  it('should return for getAll', async () => {
-    // mock file for reuse
-    // notice we are pulling the repo variable and using jest.spyOn with no issues
-    // jest.spyOn(repo, 'find').mockResolvedValueOnce([testPost]);
-    // expect(await service.getAll()).toEqual([testPost]);
+  it('should be defined', () => {
+    expect(postService).toBeDefined();
+    expect(postRepository).toBeDefined();
+  });
+
+  describe('getAll', () => {
+    it('should get all posts', async () => {
+      await expect(postService.getAll()).resolves.toBe(postsArray);
+    });
+  });
+
+  describe('getPublished', () => {
+    test.todo('get all posts that are published');
+  });
+
+  describe('getOne', () => {
+    test.todo('should get a single post given an ID');
+
+    test.todo('should throw an error if the post does not exist');
+  });
+
+  describe('createPost', () => {
+    describe('and data is valid', () => {
+      test.todo('should create a post');
+      test.todo('should create a post if their is no body');
+    });
+
+    describe('and the data in not valid', () => {
+      test.todo('should throw an error');
+    });
+  });
+
+  describe('publishPost', () => {
+    test.todo('should update a post to be published');
+  });
+
+  describe('updatePost', () => {
+    test.todo('should update the post if the content and title are changed');
+    test.todo('should update the post if the content is changed');
+    test.todo('should update the post if the title are changed');
+    test.todo('should not allow a user to update a post that is not theirs');
   });
 });
