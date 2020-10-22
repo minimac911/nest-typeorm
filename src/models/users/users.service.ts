@@ -1,8 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,7 +10,8 @@ import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { EditUserDto } from './dto/edit-user.dto';
 import { UserEntity } from './entities/user.entity';
-import * as bcrypt from 'bcryptjs';
+import HashUtil from 'src/common/utils/hash.util';
+import { isEmpty } from 'class-validator';
 
 @Injectable()
 export class UsersService {
@@ -20,10 +20,17 @@ export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly usersRepository: Repository<UserEntity>,
+    private readonly hashUtil: HashUtil,
   ) {}
 
-  async get(id: number, relations: string[] = []): Promise<UserEntity | null> {
-    return await this.usersRepository.findOne(id, { relations });
+  async get(id: number): Promise<UserEntity | null> {
+    return await this.usersRepository.findOneOrFail(id);
+  }
+
+  async getByEmail(email: string): Promise<UserEntity> {
+    const foundUser = await this.usersRepository.findOneOrFail({ email });
+
+    return foundUser;
   }
 
   async getAll(relations: string[] = []): Promise<UserEntity[] | null> {
@@ -33,50 +40,48 @@ export class UsersService {
   async create(inputs: CreateUserDto): Promise<UserEntity> {
     const { name, email, password } = inputs;
 
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const foundUser = await this.usersRepository.findOne({ where: { email } });
+
+    if (foundUser) throw new ConflictException('Email already exists');
+
+    const { hash, salt } = await this.hashUtil.hashPassword(password);
 
     // create new user
     const newUser = await this.usersRepository.create({
       name,
       email,
       salt,
-      password: hashedPassword,
+      password: hash,
     });
 
-    try {
-      const result = await this.usersRepository.save(newUser);
-      return result;
-    } catch (error) {
-      this.logger.error(error.message, error.stack);
-      if (error.code === '23505') {
-        // duplicate email
-        throw new ConflictException('Email already exists');
-      } else {
-        throw new InternalServerErrorException();
-      }
+    const result = await this.usersRepository.save(newUser);
+    return result;
+  }
+
+  async updateUser(id: number, inputs: EditUserDto): Promise<Boolean> {
+    if (Object.keys(inputs).length === 0)
+      throw new BadRequestException('No changes provided');
+
+    const userExist = await this.usersRepository.findOneOrFail(id);
+    if (!userExist) throw new NotFoundException('User not found');
+
+    if (inputs.email) {
+      const foundUser = await this.usersRepository.findOne({
+        where: { email: inputs.email },
+      });
+
+      if (foundUser) throw new ConflictException('Email already exists');
     }
-  }
 
-  async updateUser(id: number, inputs: EditUserDto): Promise<UserEntity> {
-    const foundUser = await this.usersRepository.findOne(id);
+    try {
+      await this.usersRepository.update(id, {
+        email: inputs.email,
+        name: inputs.name,
+      });
 
-    if (!foundUser) throw new NotFoundException('User not found.');
-
-    foundUser.email = inputs.email;
-    foundUser.name = inputs.name;
-
-    const updateUser = await this.usersRepository.save(foundUser);
-
-    return updateUser;
-  }
-
-  async getByEmail(email: string): Promise<UserEntity> {
-    const foundUser = await this.usersRepository.findOne({ email });
-
-    if (!foundUser)
-      throw new ConflictException(`User with email '${email}' does not exist`);
-
-    return foundUser;
+      return true;
+    } catch (error) {
+      throw new Error(error);
+    }
   }
 }

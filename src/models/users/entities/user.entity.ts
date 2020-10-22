@@ -43,4 +43,13 @@ export class UserEntity implements IUser {
     const hash = await bcrypt.hash(password, this.salt);
     return hash === this.password;
   }
+
+  constructor(email: string, password: string, salt: string, name: string);
+  constructor(email: string, password: string, salt: string, name?: string);
+  constructor(email: string, password: string, salt: string, name?: string) {
+    this.email = email;
+    this.password = password;
+    this.salt = salt;
+    this.name = name || '';
+  }
 }
