@@ -1,11 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { UserEntity } from '../entities/user.entity';
 import { UsersService } from '../users.service';
 import HashUtil, { HashSaltResponse } from 'src/common/utils/hash.util';
-import { ConflictException } from '@nestjs/common';
-import { not } from '@hapi/joi';
 //https://github.com/mutoe/nestjs-realworld-example-app/blob/master/src/user/user.service.spec.ts
 
 const testEmail = 'test@test.com';
@@ -26,14 +24,21 @@ describe('UserService', () => {
   let userRepository: Repository<UserEntity>;
   let hashUtil: HashUtil;
 
-  let find: jest.Mock = jest.fn().mockReturnValue(userArray);
-  let findOne = jest.fn().mockReturnValue(oneUser);
-  let findOneOrFail = jest.fn().mockReturnValue(oneUser);
-  let create = jest.fn(u => u);
-  let save = jest.fn(u => u);
-  let update = jest.fn(u => u);
+  let find: jest.Mock;
+  let findOne: jest.Mock;
+  let findOneOrFail: jest.Mock;
+  let create: jest.Mock;
+  let save: jest.Mock;
+  let update: jest.Mock;
 
   beforeEach(async () => {
+    find = jest.fn().mockReturnValue(userArray);
+    findOne = jest.fn().mockReturnValue(oneUser);
+    findOneOrFail = jest.fn().mockReturnValue(oneUser);
+    create = jest.fn(u => u);
+    save = jest.fn(u => u);
+    update = jest.fn(u => u);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -69,12 +74,12 @@ describe('UserService', () => {
   it('should be defined', () => {
     expect(userService).toBeDefined();
     expect(userRepository).toBeDefined();
+    expect(hashUtil).toBeDefined();
   });
 
   describe('get', () => {
     it('should return a single user if the user id exists', async () => {
       const testId = 1;
-      const repoSpy = jest.spyOn(userRepository, 'findOneOrFail');
       expect(userService.get(testId)).resolves.toEqual(oneUser);
       expect(userRepository.findOneOrFail).toBeCalledWith(testId);
     });
@@ -113,8 +118,7 @@ describe('UserService', () => {
     });
 
     it('should not create a user if the email already exists', async () => {
-      findOne.mockReturnValueOnce(oneUser);
-
+      expect.assertions(3);
       try {
         await userService.create({
           email: testEmail,
@@ -122,24 +126,30 @@ describe('UserService', () => {
           password: testPassword,
         });
       } catch (err) {
-        expect(err).toBeDefined();
+        expect(err.message).toEqual('Email already exists');
+        expect(userRepository.findOne).toBeCalledWith({
+          where: { email: testEmail },
+        });
+        expect(userRepository.create).not.toBeCalled();
       }
-
-      expect(userRepository.findOne).toBeCalledWith({
-        where: { email: testEmail },
-      });
-
-      expect(userRepository.create).toHaveBeenCalled();
     });
   });
 
   describe('updateUser', () => {
-    const testUpdateName = 'upName';
-    const testUpdateEmail = 'upEmail@email.com';
-    const testUpdateUser = { ...oneUser };
+    let testUpdateName;
+    let testUpdateEmail;
+    let testUpdateUser;
+
+    beforeEach(() => {
+      testUpdateName = 'upName';
+      testUpdateEmail = 'upEmail@email.com';
+      testUpdateUser = { ...oneUser };
+
+      findOne.mockReturnValue(false);
+    });
 
     describe('and the user does exist', () => {
-      it('should update a user if name and email are updated', async () => {
+      it('should update a user if a new name and email are present', async () => {
         findOne.mockReturnValueOnce(false);
 
         testUpdateUser.email = testUpdateEmail;
@@ -152,6 +162,8 @@ describe('UserService', () => {
           email: testUpdateEmail,
         });
 
+        expect.assertions(4);
+
         expect(updatedUser).toBeTruthy();
 
         // check to see if the user exists
@@ -159,7 +171,7 @@ describe('UserService', () => {
 
         // find user with email
         expect(userRepository.findOne).toBeCalledWith({
-          where: { email: testEmail },
+          where: { id: Not(testId), email: testUpdateEmail },
         });
 
         // update call
@@ -202,6 +214,8 @@ describe('UserService', () => {
           email: testUpdateEmail,
         });
 
+        expect.assertions(4);
+
         expect(updatedUser).toBeTruthy();
 
         // check to see if the user exists
@@ -209,16 +223,16 @@ describe('UserService', () => {
 
         // find user with email
         expect(userRepository.findOne).toBeCalledWith({
-          where: { email: testEmail },
+          where: { id: Not(testId), email: testUpdateEmail },
         });
 
         // update call
         expect(userRepository.update).toBeCalledWith(testId, {
-          name: testUpdateName,
+          email: testUpdateEmail,
         });
       });
 
-      it('should throw an error if the new email already exists', async () => {
+      it('should throw an error if no changes are provided', async () => {
         const testId = 1;
 
         expect.assertions(1);
@@ -230,9 +244,11 @@ describe('UserService', () => {
       });
 
       it('should throw an error if the new email already exists', async () => {
-        findOne.mockReturnValueOnce(oneUser);
+        findOne.mockReturnValue(oneUser);
 
         const testId = 1;
+
+        expect.assertions(1);
 
         try {
           await userService.updateUser(testId, {
@@ -240,10 +256,28 @@ describe('UserService', () => {
             email: testUpdateEmail,
           });
         } catch (error) {
-          expect(error).toMatch('Email already exists');
+          expect(error.message).toBe('Email already exists');
+        }
+      });
+
+      it('should throw an error if update fails', async () => {
+        update.mockRejectedValue('Update error');
+
+        const testId = 1;
+
+        expect.assertions(1);
+
+        try {
+          await userService.updateUser(testId, {
+            name: testUpdateName,
+            email: testUpdateEmail,
+          });
+        } catch (error) {
+          expect(error.message).toBe('Update error');
         }
       });
     });
+
     describe('and the user does not exist', () => {
       it('should throw an error if the user does not exist', async () => {
         findOneOrFail.mockReturnValueOnce(false);
@@ -253,9 +287,9 @@ describe('UserService', () => {
         expect.assertions(1);
 
         try {
-          await userService.updateUser(testId, {});
+          await userService.updateUser(testId, { name: testUpdateName });
         } catch (error) {
-          expect(error).toMatch('User not found');
+          expect(error.message).toBe('User not found');
         }
       });
     });
