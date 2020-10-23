@@ -22,7 +22,7 @@ export class UsersService {
     private readonly hashUtil: HashUtil,
   ) {}
 
-  async get(id: number): Promise<UserEntity | null> {
+  async getById(id: number): Promise<UserEntity | null> {
     return await this.usersRepository.findOneOrFail(id);
   }
 

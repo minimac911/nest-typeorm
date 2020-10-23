@@ -16,12 +16,12 @@ export class CreatePostDto {
   @ApiProperty({ required: false, type: String })
   @IsOptional()
   @IsString()
-  readonly content: string | null;
+  readonly content?: string;
 
   @ApiProperty({ required: false, type: String })
   @IsOptional()
   @IsBoolean()
-  readonly isPublished: boolean;
+  readonly isPublished?: boolean;
 
   @ApiProperty({ required: true, type: Number })
   @IsNotEmpty()

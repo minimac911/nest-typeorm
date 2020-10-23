@@ -1,11 +1,12 @@
 // https://stackoverflow.com/questions/57099863/spyon-typeorm-repository-to-change-the-return-value-for-unit-testing-nestjs
 
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserEntity } from 'src/models/users/entities/user.entity';
-import { UsersModule } from 'src/models/users/users.module';
 import { UsersService } from 'src/models/users/users.service';
-import { FindConditions, FindManyOptions, Repository } from 'typeorm';
+import { FindManyOptions, Repository } from 'typeorm';
+import { CreatePostDto } from '../dto/create-post.dto';
 import { PostEntity } from '../entities/post.entity';
 import { PostsService } from '../posts.service';
 
@@ -53,41 +54,27 @@ const postsArray = [
 describe('PostsService', () => {
   let postService: PostsService;
   let postRepository: Repository<PostEntity>;
-
-  let find: jest.Mock;
-  let findOne: jest.Mock;
-  let findOneOrFail: jest.Mock;
-  let create: jest.Mock;
-  let update: jest.Mock;
-  let save: jest.Mock;
+  let userService: UsersService;
 
   beforeEach(async () => {
-    find = jest.fn().mockReturnValue(postsArray);
-    findOne = jest.fn().mockReturnValue(onePost);
-    findOneOrFail = jest.fn().mockReturnValue(onePost);
-    create = jest.fn(p => p);
-    save = jest.fn(p => p);
-    update = jest.fn(p => p);
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PostsService,
         {
           provide: getRepositoryToken(PostEntity),
           useValue: {
-            find,
-            findOne,
-            findOneOrFail,
-            create,
-            save,
-            update,
-          } as Partial<Repository<PostEntity>>,
+            find: jest.fn().mockResolvedValue(postsArray),
+            findOne: jest.fn().mockResolvedValue(onePost),
+            findOneOrFail: jest.fn().mockResolvedValue(onePost),
+            create: jest.fn(p => Promise.resolve(p)),
+            save: jest.fn(p => Promise.resolve(p)),
+            update: jest.fn(),
+          },
         },
         {
           provide: UsersService,
           useValue: {
-            getAll: jest.fn(),
-            get: jest.fn(),
+            getById: jest.fn().mockResolvedValue(oneUser),
           } as Partial<UsersService>,
         },
       ],
@@ -97,11 +84,13 @@ describe('PostsService', () => {
     postRepository = module.get<Repository<PostEntity>>(
       getRepositoryToken(PostEntity),
     );
+    userService = module.get<UsersService>(UsersService);
   });
 
   it('should be defined', () => {
     expect(postService).toBeDefined();
     expect(postRepository).toBeDefined();
+    expect(userService).toBeDefined();
   });
 
   describe('getAll', () => {
@@ -117,7 +106,7 @@ describe('PostsService', () => {
         new PostEntity('c', null, true, userArray[1]),
       ];
 
-      find.mockReturnValue(publishedPosts);
+      jest.spyOn(postRepository, 'find').mockResolvedValue(publishedPosts);
 
       expect.assertions(2);
 
@@ -130,15 +119,79 @@ describe('PostsService', () => {
   });
 
   describe('getOne', () => {
-    test.todo('should get a single post given an ID');
+    it('should get a single post given an ID', async () => {
+      const testId = 1;
 
-    test.todo('should throw an error if the post does not exist');
+      expect.assertions(2);
+
+      await expect(postService.getOne(testId)).resolves.toEqual(onePost);
+      expect(postRepository.findOne).toBeCalledWith(testId);
+    });
+
+    it('should throw an error if the post does not exist', async () => {
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(null);
+      const testId = 1;
+      expect.assertions(2);
+      try {
+        await postService.getOne(testId);
+      } catch (error) {
+        expect(postRepository.findOne).toBeCalledWith(testId);
+        expect(error).toBeInstanceOf(NotFoundException);
+      }
+    });
   });
 
   describe('createPost', () => {
     describe('and data is valid', () => {
-      test.todo('should create a post');
-      test.todo('should create a post if their is no body');
+      it('should create a post', async () => {
+        const dto: CreatePostDto = {
+          title: testData.title,
+          content: testData.content,
+          isPublished: testData.isPublished,
+          userId: testData.user.id,
+        };
+
+        await expect(postService.create(dto)).resolves.toEqual(onePost);
+        expect(postRepository.create).toBeCalledWith(onePost);
+        expect(postRepository.save).toBeCalledWith(onePost);
+      });
+      it('should create a post if their is no body', async () => {
+        const dto: CreatePostDto = {
+          title: testData.title,
+          content: null,
+          isPublished: testData.isPublished,
+          userId: testData.user.id,
+        };
+
+        const testPost = onePost;
+        testPost.content = null;
+
+        await expect(postService.create(dto)).resolves.toEqual(testPost);
+        expect(postRepository.create).toBeCalledWith(testPost);
+        expect(postRepository.save).toBeCalledWith(testPost);
+      });
+
+      it('should throw a NotFoundException if the user does not exist', async () => {
+        jest
+          .spyOn(userService, 'getById')
+          .mockRejectedValue(new NotFoundException());
+
+        const dto: CreatePostDto = {
+          title: testData.title,
+          content: testData.content,
+          isPublished: testData.isPublished,
+          userId: testData.user.id,
+        };
+
+        expect.assertions(2);
+
+        try {
+          await postService.create(dto);
+        } catch (error) {
+          expect(userService.getById).toBeCalledWith(dto.userId);
+          expect(error).toBeInstanceOf(NotFoundException);
+        }
+      });
     });
 
     describe('and the data in not valid', () => {

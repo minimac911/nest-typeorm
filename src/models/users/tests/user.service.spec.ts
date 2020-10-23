@@ -82,10 +82,10 @@ describe('UserService', () => {
     expect(hashUtil).toBeDefined();
   });
 
-  describe('get', () => {
+  describe('getById', () => {
     it('should return a single user if the user id exists', async () => {
       const testId = 1;
-      expect(userService.get(testId)).resolves.toEqual(oneUser);
+      expect(userService.getById(testId)).resolves.toEqual(oneUser);
       expect(userRepository.findOneOrFail).toBeCalledWith(testId);
     });
   });

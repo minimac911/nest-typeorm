@@ -33,7 +33,7 @@ export class UsersController {
   @Get('/:id')
   @UseInterceptors(ClassSerializerInterceptor)
   async get(@Param('id', ParseIntPipe) id: number): Promise<UserResponseDto> {
-    const user = await this.userService.get(id);
+    const user = await this.userService.getById(id);
     return plainToClass(UserResponseDto, user);
   }
 
