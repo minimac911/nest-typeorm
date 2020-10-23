@@ -4,6 +4,11 @@ import { Not, Repository } from 'typeorm';
 import { UserEntity } from '../entities/user.entity';
 import { UsersService } from '../users.service';
 import HashUtil, { HashSaltResponse } from 'src/common/utils/hash.util';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 //https://github.com/mutoe/nestjs-realworld-example-app/blob/master/src/user/user.service.spec.ts
 
 const testEmail = 'test@test.com';
@@ -232,23 +237,24 @@ describe('UserService', () => {
         });
       });
 
-      it('should throw an error if no changes are provided', async () => {
+      it('should throw a BadRequestException if no changes are provided', async () => {
         const testId = 1;
 
-        expect.assertions(1);
+        expect.assertions(2);
         try {
           await userService.updateUser(testId, {});
         } catch (error) {
+          expect(error).toBeInstanceOf(BadRequestException);
           expect(error.message).toEqual('No changes provided');
         }
       });
 
-      it('should throw an error if the new email already exists', async () => {
+      it('should throw a ConflictException if the new email already exists', async () => {
         findOne.mockReturnValue(oneUser);
 
         const testId = 1;
 
-        expect.assertions(1);
+        expect.assertions(2);
 
         try {
           await userService.updateUser(testId, {
@@ -256,6 +262,7 @@ describe('UserService', () => {
             email: testUpdateEmail,
           });
         } catch (error) {
+          expect(error).toBeInstanceOf(ConflictException);
           expect(error.message).toBe('Email already exists');
         }
       });
@@ -265,7 +272,7 @@ describe('UserService', () => {
 
         const testId = 1;
 
-        expect.assertions(1);
+        expect.assertions(2);
 
         try {
           await userService.updateUser(testId, {
@@ -273,22 +280,24 @@ describe('UserService', () => {
             email: testUpdateEmail,
           });
         } catch (error) {
+          expect(error).toBeInstanceOf(Error);
           expect(error.message).toBe('Update error');
         }
       });
     });
 
     describe('and the user does not exist', () => {
-      it('should throw an error if the user does not exist', async () => {
+      it('should throw a NotFoundException if the user does not exist', async () => {
         findOneOrFail.mockReturnValueOnce(false);
 
         const testId = 1;
 
-        expect.assertions(1);
+        expect.assertions(2);
 
         try {
           await userService.updateUser(testId, { name: testUpdateName });
         } catch (error) {
+          expect(error).toBeInstanceOf(NotFoundException);
           expect(error.message).toBe('User not found');
         }
       });

@@ -3,8 +3,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserEntity } from 'src/models/users/entities/user.entity';
+import { UsersModule } from 'src/models/users/users.module';
 import { UsersService } from 'src/models/users/users.service';
-import { Repository } from 'typeorm';
+import { FindConditions, FindManyOptions, Repository } from 'typeorm';
 import { PostEntity } from '../entities/post.entity';
 import { PostsService } from '../posts.service';
 
@@ -72,12 +73,6 @@ describe('PostsService', () => {
       providers: [
         PostsService,
         {
-          provide: UsersService,
-          useValue: {
-            get: jest.fn().mockReturnValue(oneUser),
-          },
-        },
-        {
           provide: getRepositoryToken(PostEntity),
           useValue: {
             find,
@@ -86,14 +81,21 @@ describe('PostsService', () => {
             create,
             save,
             update,
-          },
+          } as Partial<Repository<PostEntity>>,
+        },
+        {
+          provide: UsersService,
+          useValue: {
+            getAll: jest.fn(),
+            get: jest.fn(),
+          } as Partial<UsersService>,
         },
       ],
     }).compile();
 
     postService = module.get<PostsService>(PostsService);
     postRepository = module.get<Repository<PostEntity>>(
-      getRepositoryToken(UserEntity),
+      getRepositoryToken(PostEntity),
     );
   });
 
@@ -108,8 +110,23 @@ describe('PostsService', () => {
     });
   });
 
-  describe('getPublished', () => {
-    test.todo('get all posts that are published');
+  describe('getAllPublished', () => {
+    it('should get all posts that are published', async () => {
+      const publishedPosts: PostEntity[] = [
+        new PostEntity('a', null, true, testData.user),
+        new PostEntity('c', null, true, userArray[1]),
+      ];
+
+      find.mockReturnValue(publishedPosts);
+
+      expect.assertions(2);
+
+      await expect(postService.getAllPublished()).resolves.toBe(publishedPosts);
+
+      expect(postRepository.find).toBeCalledWith({
+        where: { isPublished: true },
+      } as FindManyOptions<PostEntity>);
+    });
   });
 
   describe('getOne', () => {

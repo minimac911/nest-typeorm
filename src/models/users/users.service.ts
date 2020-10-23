@@ -11,8 +11,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { EditUserDto } from './dto/edit-user.dto';
 import { UserEntity } from './entities/user.entity';
 import HashUtil from 'src/common/utils/hash.util';
-import { isEmpty } from 'class-validator';
-import { emitWarning } from 'process';
 
 @Injectable()
 export class UsersService {
